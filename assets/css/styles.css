@@ -645,10 +645,10 @@ body {
 }
 
 /* ===================================
-   BUTTONS
+   BUTTONS (Refonte)
    =================================== */
 
-.btn {
+.primary-button, .secondary-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -658,38 +658,53 @@ body {
     font-weight: 600;
     border-radius: 8px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     border: 1px solid transparent;
+    user-select: none; /* Empêche la sélection du texte */
 }
 
-.btn-primary {
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+.primary-button {
+    background: var(--accent-primary);
     color: white;
+    box-shadow: var(--shadow-sm);
 }
 
-.btn-primary:hover {
+.primary-button:hover {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.primary-button:active {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(8, 145, 178, 0.3);
 }
 
-.btn-secondary {
-    background: var(--bg-secondary);
+.primary-button:disabled {
+    background: var(--bg-tertiary);
+    color: var(--text-tertiary);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.secondary-button {
+    background: var(--bg-primary);
     color: var(--text-primary);
     border-color: var(--border-color);
+    box-shadow: var(--shadow-sm);
 }
 
-.btn-secondary:hover {
-    background: var(--bg-tertiary);
-}
-
-.btn-ghost {
-    background: transparent;
-    color: var(--text-secondary);
-}
-
-.btn-ghost:hover {
+.secondary-button:hover {
     background: var(--bg-secondary);
-    color: var(--text-primary);
+    border-color: var(--accent-secondary);
+    color: var(--accent-primary);
+}
+
+.secondary-button:disabled {
+    background: var(--bg-secondary);
+    color: var(--text-tertiary);
+    border-color: var(--border-color);
+    cursor: not-allowed;
 }
 
 /* ===================================

@@ -868,22 +868,38 @@ function createJournalModule({ rootId, store, toast, modal, onChange }) {
         { id: "Le Refus d'influence", label: "Refus d'influence" },
     ];
 
+    const BATCH_SIZE = 20;
     const state = {
         filter: 'all',
+        visibleCount: BATCH_SIZE,
     };
 
     let eventsBound = false;
 
     function render() {
+        // On full re-render, reset visible count
+        state.visibleCount = BATCH_SIZE;
         const entries = store.getAll();
         const filteredEntries =
             state.filter === 'all'
                 ? entries
                 : entries.filter((entry) => entry.egoFocus === state.filter);
 
+        const visibleEntries = filteredEntries.slice(0, state.visibleCount);
+
+        const loadMoreButtonHTML =
+            filteredEntries.length > state.visibleCount
+                ? `
+                <div class="text-center mt-6">
+                    <button type="button" class="secondary-button" data-action="load-more">
+                        Charger plus (${filteredEntries.length - state.visibleCount} restantes)
+                    </button>
+                </div>`
+                : '';
+
         root.innerHTML = `
             <div class="space-y-6">
-                <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                 <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <h2 class="text-2xl font-bold text-slate-900 dark:text-slate-100">Mon Journal</h2>
                         <p class="text-slate-600 dark:text-slate-400 text-sm">
@@ -903,6 +919,18 @@ function createJournalModule({ rootId, store, toast, modal, onChange }) {
                         </button>
                     </div>
                 </header>
+
+                <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-sm text-amber-800 dark:text-amber-200">
+                    <div class="flex items-start gap-3">
+                        <span class="text-xl mt-0.5">💡</span>
+                        <div>
+                            <p class="font-semibold">Important : Vos données sont locales</p>
+                            <p class="mt-1">
+                                Vos analyses sont sauvegardées uniquement dans ce navigateur. Pensez à utiliser la fonction <strong>"Exporter (JSON)"</strong> régulièrement pour ne rien perdre.
+                            </p>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="flex gap-2 flex-wrap">
                     ${egoFilters
@@ -924,10 +952,13 @@ function createJournalModule({ rootId, store, toast, modal, onChange }) {
 
                 <div id="journal-list" class="space-y-4">
                     ${
-                        filteredEntries.length === 0
+                        visibleEntries.length === 0
                             ? renderEmptyState(entries.length)
-                            : filteredEntries.map(renderEntryCard).join('')
+                            : visibleEntries.map(renderEntryCard).join('')
                     }
+                </div>
+                <div id="journal-footer">
+                    ${loadMoreButtonHTML}
                 </div>
             </div>
         `;
@@ -952,6 +983,9 @@ function createJournalModule({ rootId, store, toast, modal, onChange }) {
                 state.filter = button.getAttribute('data-filter') || 'all';
                 render();
                 break;
+            case 'load-more':
+                loadMoreEntries();
+                break;
             case 'view':
                 viewEntry(entryId);
                 break;
@@ -968,7 +1002,7 @@ function createJournalModule({ rootId, store, toast, modal, onChange }) {
                 // 🔴 CRITICAL: Ask for confirmation before clearing ALL data
                 modal.open({
                     title: '⚠️ Vider complètement le journal ?',
-                    body: `<p>Tu vas supprimer <strong>${entries.length} entrées</strong> de manière irréversible.</p>
+                    body: `<p>Tu vas supprimer <strong>${store.getAll().length} entrées</strong> de manière irréversible.</p>
                            <p class="mt-2 text-sm text-slate-500">Cette action ne peut pas être annulée.</p>`,
                     buttons: [
                         { label: 'Annuler', variant: 'secondary', action: 'cancel' },
@@ -985,6 +1019,51 @@ function createJournalModule({ rootId, store, toast, modal, onChange }) {
                 break;
             default:
                 break;
+        }
+    }
+
+    function loadMoreEntries() {
+        const entries = store.getAll();
+        const filteredEntries =
+            state.filter === 'all'
+                ? entries
+                : entries.filter((entry) => entry.egoFocus === state.filter);
+
+        const currentCount = state.visibleCount;
+        const nextCount = currentCount + BATCH_SIZE;
+        state.visibleCount = nextCount;
+
+        const nextEntries = filteredEntries.slice(currentCount, nextCount);
+
+        const listElement = document.getElementById('journal-list');
+        const footerElement = document.getElementById('journal-footer');
+
+        if (!listElement || !footerElement) return;
+
+        // Append new entries
+        if (nextEntries.length > 0) {
+            const fragment = document.createDocumentFragment();
+            for (const entry of nextEntries) {
+                const cardHTML = renderEntryCard(entry);
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = cardHTML.trim();
+                if (tempDiv.firstChild) {
+                    fragment.appendChild(tempDiv.firstChild);
+                }
+            }
+            listElement.appendChild(fragment);
+        }
+
+        // Update "Load More" button
+        if (filteredEntries.length > nextCount) {
+             footerElement.innerHTML = `
+                <div class="text-center mt-6">
+                    <button type="button" class="secondary-button" data-action="load-more">
+                        Charger plus (${filteredEntries.length - nextCount} restantes)
+                    </button>
+                </div>`;
+        } else {
+            footerElement.innerHTML = ''; // No more entries, remove button
         }
     }
 
@@ -2276,9 +2355,19 @@ function createAIModule({ rootId, toast, gemini, ollama, modal }) {
             button.classList.toggle('opacity-70', isLoading);
             const label = button.querySelector('.analyze-label');
             if (label) {
-                label.textContent = isLoading
-                    ? 'Analyse en cours...'
-                    : 'Analyser la situation';
+                 if (isLoading) {
+                    button.classList.add('flex', 'items-center', 'justify-center');
+                    label.innerHTML = `
+                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Analyse en cours...
+                    `;
+                } else {
+                    button.classList.remove('flex', 'items-center', 'justify-center');
+                    label.innerHTML = 'Analyser la situation';
+                }
             }
         }
 
