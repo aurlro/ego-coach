@@ -37,7 +37,7 @@ function validateImportedData(data) {
     }
 
     if (data.length === 0) {
-        throw new Error('Tableau vide');
+        return [];
     }
 
     if (data.length > 1000) {
