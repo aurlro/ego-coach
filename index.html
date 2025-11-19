@@ -100,6 +100,16 @@
 
         <!-- Quick Actions -->
         <div class="sidebar-footer">
+            <!-- User Simulation -->
+            <div id="user-simulation" class="p-2 border-t border-slate-200 dark:border-slate-800">
+                <p class="nav-section-title">SIMULATION</p>
+                <div class="flex items-center gap-2 mt-2">
+                    <input type="text" id="user-simulation-input" placeholder="Nom d'utilisateur" class="w-full text-xs p-1 rounded bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700">
+                    <button id="user-simulation-btn" class="text-xs p-1 rounded bg-cyan-600 text-white">→ Go</button>
+                </div>
+                <p class="text-xs text-slate-500 mt-1">Utilisateur actuel: <span id="current-user-display" class="font-semibold">default</span></p>
+            </div>
+
             <button class="quick-action-btn" id="quick-analyze">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -242,6 +252,7 @@
     <script src="assets/js/modules/gottmanPatterns.js"></script>
     <script src="assets/js/modules/couplePatterns.js"></script>
     <script src="assets/js/modules/attachmentStyles.js"></script>
+    <script src="assets/js/data-store.js"></script>
     <script src="assets/js/app.js"></script>
 </body>
 </html>
