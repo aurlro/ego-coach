@@ -963,26 +963,25 @@ function createJournalModule({ rootId, store, toast, modal, onChange }) {
     function handleImport(event) {
         const file = event.target.files?.[0];
         if (!file) return;
+
         const reader = new FileReader();
         reader.onload = () => {
             try {
                 const parsed = JSON.parse(reader.result);
+                const validated = validateImportedData(parsed);
+                const result = store.importEntries(validated);
 
-                // 🔴 SECURITY: Strict validation of imported data
-                let validated;
-                try {
-                    validated = validateImportedData(parsed);
-                } catch (validationError) {
-                    throw new Error(`Validation JSON échouée: ${validationError.message}`);
+                if (result.success) {
+                    toast.success(`Import réussi : ${result.count} entrées fusionnées.`);
+                    render();
+                    onChange?.();
+                } else {
+                    toast.error(result.message || 'Erreur lors de l\'importation.');
                 }
-
-                const imported = store.importEntries(validated);
-                toast.success(`Import réussi : ${imported.count} entrées fusionnées.`);
-                event.target.value = '';
-                render();
-                onChange?.();
             } catch (error) {
-                toast.error(error.message || 'Import impossible.');
+                toast.error(`Échec de l'import : ${error.message}`);
+            } finally {
+                event.target.value = '';
             }
         };
         reader.readAsText(file);
