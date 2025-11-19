@@ -68,7 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const encryptor = createLocalEncryptor();
     const gemini = createGeminiService({ encryptor, toast });
     const ollama = createOllamaService({ toast });
-    const journalStore = createJournalStore('communicationJournal', toast);
+    const dataStore = createDataStore({ defaultUser: 'default' });
+    const journalStore = createJournalStore({ dataStore, toast });
     const notifications = createNotificationManager();
 
     // --- NOUVELLE UI: Initialisation de la Navigation Sidebar ---
@@ -344,6 +345,32 @@ document.addEventListener('DOMContentLoaded', () => {
     // Restaurer la dernière page visitée
     navManager.restoreLastPage();
 
+    // --- Simulation Utilisateur ---
+    const userInput = document.getElementById('user-simulation-input');
+    const userBtn = document.getElementById('user-simulation-btn');
+    const userDisplay = document.getElementById('current-user-display');
+
+    function updateUserContext() {
+        const newUser = userInput.value;
+        dataStore.setCurrentUser(newUser);
+        userDisplay.textContent = dataStore.getCurrentUser();
+        userInput.value = '';
+
+        // Re-render modules that depend on user data
+        homeModule.render();
+        journalModule.render();
+
+        toast.info(`Utilisateur changé pour : ${dataStore.getCurrentUser()}`);
+    }
+
+    userBtn.addEventListener('click', updateUserContext);
+    userInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            updateUserContext();
+        }
+    });
+    // --- Fin Simulation Utilisateur ---
+
     const fallbackPage = 'home';
     let initialPage = fallbackPage;
     try {
@@ -371,6 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw error;
                 }),
         store: journalStore,
+        dataStore,
         gemini,
     };
 
@@ -2522,35 +2550,22 @@ function createGuideModule({ rootId, toast, dojo, modal }) {
 
 // --- Store ---
 
-function createJournalStore(storageKey, toast) {
-    const fallback = [];
+function createJournalStore({ dataStore, toast }) {
+    const JOURNAL_KEY = 'journal';
 
     function getAll() {
-        try {
-            const raw = localStorage.getItem(storageKey);
-            if (!raw) return [...fallback];
-            const parsed = JSON.parse(raw);
-            if (!Array.isArray(parsed)) return [...fallback];
-            return parsed.sort(
-                (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-            );
-        } catch (error) {
-            console.debug('Lecture du journal impossible :', error);
-            return [...fallback];
-        }
+        const entries = dataStore.getData(JOURNAL_KEY, []);
+        return entries.sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
     }
 
     function saveAll(entries) {
-        try {
-            localStorage.setItem(storageKey, JSON.stringify(entries));
-            return true;
-        } catch (error) {
-            console.debug('Écriture du journal impossible :', error);
-            fallback.length = 0;
-            fallback.push(...entries);
-            toast?.warning?.('Stockage local indisponible, données conservées en mémoire.');
-            return false;
+        const success = dataStore.saveData(JOURNAL_KEY, entries);
+        if (!success) {
+            toast?.warning?.('Stockage local indisponible, données non persistées.');
         }
+        return success;
     }
 
     function saveEntry(entry) {
