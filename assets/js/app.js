@@ -780,17 +780,35 @@ function createManualAnalyzer({ rootId, store, toast, onSaved }) {
 
     function validateCurrentStep() {
         const currentStep = steps[state.stepIndex];
-        const missing = currentStep.fields.filter(
-            (field) => field.required && !state.values[field.name]?.trim(),
-        );
-        if (missing.length > 0) {
-            toast.error(
-                missing.length > 1
-                    ? 'Complète les champs demandés avant de continuer.'
-                    : 'Complète ce champ avant de continuer.',
-            );
+        let hasError = false;
+        const form = root.querySelector('#manual-form');
+
+        // Clear all previous errors
+        form.querySelectorAll('.error-message').forEach(el => el.remove());
+        form.querySelectorAll('.border-red-500').forEach(el => {
+            el.classList.remove('border-red-500', 'ring-1', 'ring-red-500');
+        });
+
+        // Check fields and add errors
+        currentStep.fields.forEach(field => {
+            if (field.required && !state.values[field.name]?.trim()) {
+                hasError = true;
+                const inputEl = form.querySelector(`[name="${field.name}"]`);
+                if (inputEl) {
+                    inputEl.classList.add('border-red-500', 'ring-1', 'ring-red-500');
+                    const errorEl = document.createElement('p');
+                    errorEl.className = 'text-xs text-red-500 mt-1 error-message';
+                    errorEl.textContent = "Ce champ est requis pour l'analyse.";
+                    inputEl.insertAdjacentElement('afterend', errorEl);
+                }
+            }
+        });
+
+        if (hasError) {
+            toast.error('Complète les champs en rouge avant de continuer.');
             return false;
         }
+
         return true;
     }
 
@@ -1322,7 +1340,18 @@ function createHomeModule({ rootId, store, toast, navigate }) {
                     <div class="dashboard-list">
                         ${
                             stats.latestEntries.length === 0
-                                ? '<p class="text-sm text-slate-500 dark:text-slate-400">Aucun insight enregistré pour l’instant.</p>'
+                                ? `<div class="text-center py-8">
+                                     <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                     </svg>
+                                     <h3 class="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">Aucune analyse pour le moment.</h3>
+                                     <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Commence par une analyse pour voir tes synthèses ici.</p>
+                                     <div class="mt-6">
+                                         <button type="button" class="primary-button" data-navigate="analyzer-manual">
+                                             Lancer une nouvelle analyse
+                                         </button>
+                                     </div>
+                                   </div>`
                                 : stats.latestEntries
                                       .map(
                                           (entry) => `
@@ -1959,8 +1988,9 @@ function createAIModule({ rootId, toast, gemini, ollama, modal }) {
             });
 
             root.addEventListener('click', (event) => {
-                const action = event.target.getAttribute('data-action');
-                if (!action) return;
+                const button = event.target.closest('[data-action]');
+                if (!button) return;
+                const action = button.getAttribute('data-action');
 
                 switch (action) {
                     case 'trigger-file':
@@ -2048,28 +2078,29 @@ function createAIModule({ rootId, toast, gemini, ollama, modal }) {
 
             (async () => {
                 let result;
+                let errorHandled = false;
 
                 if (provider === 'gemini') {
                     const status = gemini.getKeyStatus();
                     if (!status.configured) {
                         toast.warning('Gemini non configuré. Configure-le ou change de provider.');
                         openGeminiModal();
-                        return runLocalHeuristics(text);
-                    }
-                    if (status.cooldown) {
+                        result = runLocalHeuristics(text);
+                        result.source = 'heuristic';
+                    } else if (status.cooldown) {
                         toast.warning(`Gemini en cooldown. Fallback local.`);
                         result = runLocalHeuristics(text);
                         result.source = 'heuristic';
-                        return result;
-                    }
-                    toast.info('Analyse Gemini en cours...');
-                    try {
-                        result = await gemini.fetchAnalysis(text);
-                        result.meta = result.meta || "Analyse Gemini";
-                        result.source = 'gemini';
-                        toast.success('Analyse Gemini générée.');
-                    } catch (error) {
-                        result = handleGeminiError(error, text);
+                    } else {
+                        toast.info('Analyse Gemini en cours...');
+                        try {
+                            result = await gemini.fetchAnalysis(text);
+                            result.meta = result.meta || "Analyse Gemini";
+                            result.source = 'gemini';
+                            toast.success('Analyse Gemini générée.');
+                        } catch (error) {
+                            result = handleGeminiError(error, text);
+                        }
                     }
                 } else if (provider === 'ollama') {
                     toast.info('Analyse Ollama en cours...');
@@ -2078,9 +2109,28 @@ function createAIModule({ rootId, toast, gemini, ollama, modal }) {
                         toast.success(`Analyse générée par ${result.model}`);
                     } catch (error) {
                         console.error('Ollama error:', error);
-                        toast.error(error.message || 'Erreur Ollama. Fallback local.');
-                        result = runLocalHeuristics(text);
-                        result.source = 'heuristic';
+                        if (error.message.includes('Impossible de contacter Ollama')) {
+                            const container = root.querySelector('#ai-results');
+                            container.classList.remove('hidden');
+                            container.innerHTML = `
+                                <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-sm text-amber-800 dark:text-amber-200" data-testid="ollama-connection-error">
+                                    <div class="flex items-start gap-3">
+                                        <span class="text-xl mt-0.5">⚠️</span>
+                                        <div>
+                                            <p class="font-semibold">IA non disponible</p>
+                                            <p class="mt-1">
+                                                Impossible de se connecter au moteur d'IA local. Vérifiez qu'Ollama est bien lancé.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            errorHandled = true;
+                        } else {
+                            toast.error(error.message || 'Erreur Ollama. Fallback local.');
+                            result = runLocalHeuristics(text);
+                            result.source = 'heuristic';
+                        }
                     }
                 } else {
                     // Heuristic
@@ -2089,14 +2139,18 @@ function createAIModule({ rootId, toast, gemini, ollama, modal }) {
                     result.source = 'heuristic';
                 }
 
-                setResult(result, text);
+                if (!errorHandled) {
+                    setResult(result, text);
+                }
             })()
                 .catch((error) => {
                     console.error('Analyse IA', error);
                     toast.error('Analyse impossible pour le moment.');
                 })
                 .finally(() => {
-                    setLoading(false);
+                    if (!errorHandled) {
+                        setLoading(false);
+                    }
                 });
         }
 
@@ -2506,6 +2560,27 @@ function createGuideModule({ rootId, toast, dojo, modal }) {
         return { render: () => {} };
     }
 
+    function renderDebugPanel() {
+        const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (isDevMode) {
+            return '';
+        }
+
+        return `
+            <section class="debug-panel card">
+                <h3 class="card-title">Debug Tools</h3>
+                <div class="form-group">
+                    <label for="debug-ollama-endpoint" class="form-label">Ollama Endpoint</label>
+                    <input type="text" id="debug-ollama-endpoint" class="form-input" value="${localStorage.getItem('ollama.endpoint.v1') || ''}">
+                </div>
+                <div class="form-group">
+                    <label for="debug-ollama-model" class="form-label">Ollama Model</label>
+                    <input type="text" id="debug-ollama-model" class="form-input" value="${localStorage.getItem('ollama.model.v1') || ''}">
+                </div>
+            </section>
+        `;
+    }
+
     function render() {
         root.innerHTML = `
             <div class="space-y-6">
@@ -2565,6 +2640,7 @@ function createGuideModule({ rootId, toast, dojo, modal }) {
                         <li>Propose la suite : MVP livré + itération planifiée.</li>
                     </ol>
                 </section>
+                ${renderDebugPanel()}
             </div>
         `;
     }
