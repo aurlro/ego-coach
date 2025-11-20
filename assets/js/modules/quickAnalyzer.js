@@ -100,6 +100,18 @@ function createQuickAnalyzer({ rootId, store, toast, gemini, ollama, modal }) {
         if (state.isLoading) return;
 
         state.isLoading = true;
+        const analyzeBtn = root.querySelector('#quick-analyze-btn');
+        const originalText = analyzeBtn ? analyzeBtn.innerHTML : '';
+
+        if (analyzeBtn) {
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = `
+                <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
+                Analyse en cours...
+            `;
+            if (window.refreshIcons) window.refreshIcons(analyzeBtn);
+        }
+
         const provider = getAIProvider();
 
         try {
@@ -146,6 +158,11 @@ function createQuickAnalyzer({ rootId, store, toast, gemini, ollama, modal }) {
             toast.error('Erreur lors de l\'analyse');
         } finally {
             state.isLoading = false;
+            if (analyzeBtn) {
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerHTML = originalText;
+                if (window.refreshIcons) window.refreshIcons(analyzeBtn);
+            }
         }
     }
 
