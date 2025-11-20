@@ -37,7 +37,7 @@ function createQuickAnalyzer({ rootId, store, toast, gemini, ollama, modal }) {
 
                 <div class="quick-analyzer-content">
                     <!-- Input Section -->
-                    <div class="quick-input-section">
+                    <div class="quick-input-section p-6">
                         <textarea
                             id="quick-input"
                             placeholder="Décris rapidement la situation... (ex: Mon manager m'a critiqué pendant la réunion, j'ai senti ma défensive s'activer)"
@@ -46,22 +46,18 @@ function createQuickAnalyzer({ rootId, store, toast, gemini, ollama, modal }) {
                         ></textarea>
                         <div class="quick-actions mt-4 flex gap-3">
                             <button type="button" class="btn btn-primary" id="quick-analyze-btn">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                                </svg>
+                                <i data-lucide="zap" class="w-4 h-4"></i>
                                 Analyser maintenant
                             </button>
                             <button type="button" class="btn btn-secondary" id="quick-clear-btn">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                </svg>
+                                <i data-lucide="x" class="w-4 h-4"></i>
                                 Effacer
                             </button>
                         </div>
                     </div>
 
                     <!-- Results Section -->
-                    <div id="quick-results" class="quick-results-section hidden mt-6">
+                    <div id="quick-results" class="quick-results-section hidden mt-6 p-6">
                         <!-- Results will be rendered here -->
                     </div>
                 </div>
@@ -104,6 +100,18 @@ function createQuickAnalyzer({ rootId, store, toast, gemini, ollama, modal }) {
         if (state.isLoading) return;
 
         state.isLoading = true;
+        const analyzeBtn = root.querySelector('#quick-analyze-btn');
+        const originalText = analyzeBtn ? analyzeBtn.innerHTML : '';
+
+        if (analyzeBtn) {
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = `
+                <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
+                Analyse en cours...
+            `;
+            if (window.refreshIcons) window.refreshIcons(analyzeBtn);
+        }
+
         const provider = getAIProvider();
 
         try {
@@ -150,6 +158,11 @@ function createQuickAnalyzer({ rootId, store, toast, gemini, ollama, modal }) {
             toast.error('Erreur lors de l\'analyse');
         } finally {
             state.isLoading = false;
+            if (analyzeBtn) {
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerHTML = originalText;
+                if (window.refreshIcons) window.refreshIcons(analyzeBtn);
+            }
         }
     }
 
@@ -225,15 +238,11 @@ function createQuickAnalyzer({ rootId, store, toast, gemini, ollama, modal }) {
 
                 <div class="mt-4 flex gap-2 pt-4 border-t border-slate-200 dark:border-slate-700">
                     <button class="btn btn-secondary text-sm" id="quick-save-btn">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h6a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V5z"/>
-                        </svg>
+                        <i data-lucide="save" class="w-4 h-4"></i>
                         Sauvegarder
                     </button>
                     <button class="btn btn-ghost text-sm" id="quick-copy-btn">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                        </svg>
+                        <i data-lucide="copy" class="w-4 h-4"></i>
                         Copier
                     </button>
                 </div>
