@@ -114,6 +114,9 @@ function createQuickAnalyzer({ rootId, store, toast, gemini, ollama, modal }) {
 
         const provider = getAIProvider();
 
+        // Artificial delay to ensure loading state is visible and interaction feels substantial
+        await new Promise(resolve => setTimeout(resolve, 600));
+
         try {
             let result;
 
