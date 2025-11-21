@@ -177,7 +177,7 @@ function createQuickAnalyzer({ rootId, store, toast, gemini, ollama, modal }) {
                 insights: result.takeaways || [],
                 source: result.source || 'heuristic',
             };
-            store.addEntry(entry);
+            store.saveEntry(entry);
         } catch (error) {
             console.debug('Sauvegarde auto échouée:', error);
         }
