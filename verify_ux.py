@@ -29,7 +29,7 @@ def verify_ux():
         print("Screenshot of Loading State taken")
 
         # Verify spinner exists in DOM
-        spinner = page.query_selector("i.animate-spin")
+        spinner = page.query_selector(".animate-spin")
         if spinner:
             print("Spinner found in DOM")
         else:
