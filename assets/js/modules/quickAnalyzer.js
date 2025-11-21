@@ -258,9 +258,13 @@ function createQuickAnalyzer({ rootId, store, toast, gemini, ollama, modal }) {
 
         root.querySelector('#quick-copy-btn')?.addEventListener('click', () => {
             const text = result.options?.map(o => `${o.objective}: "${o.script}"`).join('\n\n') || '';
-            copyTextToClipboard(text).then(() => {
-                toast.success('Copié dans le presse-papiers');
-            });
+            copyTextToClipboard(text)
+                .then(() => {
+                    toast.success('Copié dans le presse-papiers');
+                })
+                .catch(() => {
+                    toast.error('Erreur lors de la copie');
+                });
         });
     }
 
